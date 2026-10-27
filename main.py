@@ -1,16 +1,36 @@
-# This is a sample Python script.
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+import sys
+import argparse
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+def main():
+    # Парсинг аргументов командной строки
+    parser = argparse.ArgumentParser(description="VFS Shell Emulator")
+    parser.add_argument("--user", type=str, default="user", help="Username for prompt")
+    args = parser.parse_args()
+
+    username = args.user
+
+    # Основной цикл REPL
+    while True:
+        try:
+            # Вывод приглашения к вводу
+            command_input = input(f"{username}@vfs> ").strip()
+
+            if not command_input:
+                continue
+
+            # Команда выхода
+            if command_input == "exit":
+                print("Завершение работы эмулятора.")
+                break
+
+            # Заглушка для обработки других команд
+            print(f"Выполнена команда: {command_input}")
+
+        except (KeyboardInterrupt, EOFError):
+            print("\nЗавершение работы эмулятора.")
+            break
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+if __name__ == "__main__":
+    main()
