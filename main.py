@@ -1,106 +1,82 @@
 import argparse
-import sys
+import zipfile
 import os
 
 
 class VFSEmulator:
-    def __init__(self, vfs_path, script_path, username="user"):
+    def __init__(self, vfs_path, script_path, username):
         self.vfs_path = vfs_path
         self.script_path = script_path
         self.username = username
+
+        self.virtual_fs = {}
         self.current_dir = "/"
 
-    def get_prompt(self):
-        return f"{self.username}@vfs:{self.current_dir}> "
+        self.load_vfs()
 
-    def execute_command(self, cmd_line):
-        """Выполнение одной команды эмулятора"""
-        cmd_line = cmd_line.strip()
-        if not cmd_line or cmd_line.startswith("#"):
-            return True  # Пропускаем пустые строки и комментарии
-
-        # Требование: вывод в формате "ввод и вывод" (имитация диалога)
-        print(f"{self.get_prompt()}{cmd_line}")
-        parts = cmd_line.split()
-        cmd = parts[0]
-        args = parts[1:]
-
-        if cmd == "exit":
-            print("Завершение работы эмулятора.")
-            return False
-        elif cmd == "ls":
-            print("[stub] Вывод содержимого директории (будет реализован на след. этапе)")
-        elif cmd == "cd":
-            target = args[0] if args else ""
-            print(f"[stub] Переход в директорию: {target} (будет реализован на след. этапе)")
-        else:
-            # Требование: сообщение об ошибке во время исполнения скрипта
-            print(f"Ошибка: неизвестная команда '{cmd}'")
-            return False  # Требование: остановка при первой ошибке
-
-        return True
-
-    def run_script(self):
-        """Выполнение команд из стартового скрипта"""
-        if not self.script_path:
-            return
-
-        if not os.path.exists(self.script_path):
-            print(f"Ошибка: Стартовый скрипт '{self.script_path}' не найден.")
-            sys.exit(1)
-
-        print(f"--- Начало выполнения скрипта: {self.script_path} ---")
+    def load_vfs(self):
+        """Загрузка zip-архива в оперативную память"""
         try:
-            with open(self.script_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if not self.execute_command(line):
-                        print(f"Прерывание скрипта из-за ошибки/команды exit.")
-                        sys.exit(1)
-        except Exception as e:
-            print(f"Ошибка при чтении скрипта: {e}")
-            sys.exit(1)
-        print("--- Конец выполнения скрипта ---")
+            with zipfile.ZipFile(self.vfs_path, 'r') as archive:
+                for filename in archive.namelist():
+                    self.virtual_fs[filename] = archive.read(filename)
+            print(f"[VFS] Успешно загружено файлов: {len(self.virtual_fs)}")
+        except FileNotFoundError:
+            print(f"[VFS Error] Архив '{self.vfs_path}' не найден!")
+        except zipfile.BadZipFile:
+            print(f"[VFS Error] Файл '{self.vfs_path}' поврежден или не является zip-архивом.")
 
     def run_interactive(self):
-        """Интерактивный режим REPL"""
+        print(f"Добро пожаловать, {self.username}! Введите 'exit' для выхода.")
         while True:
             try:
-                command_input = input(self.get_prompt()).strip()
-                if not command_input:
+                command = input(f"{self.username}@vfs:{self.current_dir}$ ").strip()
+                if not command:
                     continue
 
-                if not self.execute_command(command_input):
-                    break
+                parts = command.split()
+                cmd = parts[0]
+                args = parts[1:]
 
-            except (KeyboardInterrupt, EOFError):
-                print("\nЗавершение работы эмулятора.")
+                if cmd == "exit":
+                    print("Завершение работы эмулятора.")
+                    break
+                elif cmd == "ls":
+                    print("Содержимое виртуальной файловой системы:")
+                    for path in self.virtual_fs.keys():
+                        print(f"  {path}")
+                elif cmd == "cd":
+                    if args:
+                        self.current_dir = f"/{args[0]}"
+                        print(f"Переход в директорию: {self.current_dir}")
+                    else:
+                        print("cd: укажите директорию")
+                else:
+                    print(f"Неизвестная команда: {cmd}")
+            except EOFError:
                 break
+
+    def run_script(self):
+        # Заглушка для выполнения скрипта, если он есть
+        if self.script_path and os.path.exists(self.script_path):
+            with open(self.script_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    print(f"> {line.strip()}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="VFS Shell Emulator - Stage 2 (Configuration)")
-
-    # Требование 1: Параметры командной строки (путь к VFS и путь к стартовому скрипту)
-    parser.add_argument("--vfs", type=str, required=True, help="Путь к физическому расположению VFS")
-    parser.add_argument("--script", type=str, default="", help="Путь к стартовому скрипту")
-    parser.add_argument("--user", type=str, default="user", help="Имя пользователя для приглашения")
+    parser = argparse.ArgumentParser(description="VFS Emulator")
+    parser.add_argument('--vfs', type=str, default='vfs.zip', help='Путь к vfs.zip')
+    parser.add_argument('--script', type=str, default=None, help='Путь к скрипту')
+    parser.add_argument('--user', type=str, default='Artem', help='Имя пользователя')
 
     args = parser.parse_args()
 
-    # Требование 1: Отладочный вывод всех заданных параметров при запуске
-    print("=== [DEBUG] Заданные параметры эмулятора ===")
-    print(f"  Путь к VFS          : {args.vfs}")
-    print(f"  Путь к скрипту      : {args.script if args.script else 'Не задан'}")
-    print(f"  Имя пользователя    : {args.user}")
-    print("===========================================")
-
     emulator = VFSEmulator(vfs_path=args.vfs, script_path=args.script, username=args.user)
 
-    # Если передан стартовый скрипт — выполняем его
     if args.script:
         emulator.run_script()
 
-    # Запуск интерактивного режима
     emulator.run_interactive()
 
 
