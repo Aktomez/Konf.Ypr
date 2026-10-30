@@ -11,6 +11,7 @@ class VFSEmulator:
         self.username = username
 
         self.virtual_fs = set()
+        self.permissions = {}  # Словарь для хранения прав в памяти (chmod)
         self.current_dir = "/"
         self.start_time = time.time()
 
@@ -19,10 +20,14 @@ class VFSEmulator:
     def load_vfs(self):
         """Загрузка структуры zip-архива"""
         try:
+            self.virtual_fs = set()
             with zipfile.ZipFile(self.vfs_path, 'r') as archive:
                 for filename in archive.namelist():
                     norm_path = "/" + filename.strip("/")
                     self.virtual_fs.add(norm_path)
+                    # Устанавливаем права по умолчанию (например, 755), если их еще нет
+                    if norm_path not in self.permissions:
+                        self.permissions[norm_path] = "755"
             print(f"[VFS] Успешно загружено объектов: {len(self.virtual_fs)}")
         except FileNotFoundError:
             print(f"[VFS Error] Архив '{self.vfs_path}' не найден!")
@@ -104,6 +109,43 @@ class VFSEmulator:
         """Имя текущего пользователя"""
         print(self.username)
 
+    def cmd_chmod(self, args):
+        """Изменение прав доступа к файлу/директории (в памяти)"""
+        if len(args) < 2:
+            print("chmod: пропущены аргументы. Использование: chmod <режим> <путь>")
+            return
+
+        mode = args[0]
+        target = args[1]
+        abs_path = self._get_absolute_path(target)
+
+        # Проверяем существование файла или папки в виртуальной системе
+        exists = (
+            abs_path in self.virtual_fs or
+            abs_path.rstrip("/") in self.virtual_fs or
+            any(p.startswith(abs_path.rstrip("/") + "/") for p in self.virtual_fs)
+        )
+
+        if abs_path == "/" or exists:
+            self.permissions[abs_path] = mode
+            print(f"Права для '{target}' успешно изменены на {mode}")
+        else:
+            print(f"chmod: нет такого файла или директории: {target}")
+
+    def cmd_vfs_load(self, args):
+        """Загрузка нового VFS архива с диска"""
+        if not args:
+            print("vfs-load: не указан путь к архиву")
+            return
+
+        new_path = args[0]
+        if os.path.exists(new_path):
+            self.vfs_path = new_path
+            self.load_vfs()
+            self.current_dir = "/"  # Сброс в корень при смене файловой системы
+        else:
+            print(f"vfs-load: архив не найден: {new_path}")
+
     def execute_command(self, command_line):
         parts = command_line.split()
         if not parts:
@@ -125,6 +167,10 @@ class VFSEmulator:
             self.cmd_uptime()
         elif cmd == "whoami":
             self.cmd_whoami()
+        elif cmd == "chmod":
+            self.cmd_chmod(args)
+        elif cmd == "vfs-load":
+            self.cmd_vfs_load(args)
         else:
             print(f"Неизвестная команда: {cmd}")
         return True

@@ -1,8 +1,17 @@
-whoami
-uptime
+# Проверка базовой навигации
 ls
 cd vfs_folder
 ls
-tree
-cd nonexistent_folder
+
+# Проверка команды chmod (изменение прав в памяти)
+chmod 777 gta.txt
+chmod 644 rainbow.txt
+
+# Проверка обработки ошибок для chmod (несуществующий файл)
+chmod 755 nonexistent_file.txt
+
+# Проверка загрузки новой виртуальной файловой системы (если есть другой zip, либо проверка ошибки)
+vfs-load nonexistent.zip
+
+# Выход из эмулятора
 exit
